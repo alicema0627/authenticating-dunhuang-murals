@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>敦煌壁畫鑑偽專案：流體軌跡逆向工程模擬器與圖解實例</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dunhuang: {
+                            gold: '#D4AF37',
+                            red: '#8B0000',
+                            ochre: '#C87D55',
+                            sand: '#F4EAD3',
+                            slate: '#0F172A',
+                            teal: '#2A9D8F',
+                            cyan: '#22D3EE'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Three.js & OrbitControls for 3D simulation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- SheetJS for Excel Import/Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', 'Noto Serif TC', sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+        }
+
+        .font-serif-tc {
+            font-family: 'Noto Serif TC', serif;
+        }
+        
+        .tab-btn.active {
+            border-bottom: 3px solid #D4AF37;
+            color: #D4AF37;
+            font-weight: 700;
+            background-color: rgba(212, 175, 55, 0.12);
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .katex-display {
+            margin: 0.4em 0 !important;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px 0;
+        }
+
+        /* Safe Math Symbol Formatting for Google Sites */
+        .math-symbol {
+            font-family: 'KaTeX_Math', 'Georgia', 'Times New Roman', serif;
+            font-style: italic;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d4af37;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-amber-500 selection:text-slate-950">
+
+    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-800 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg border border-amber-400/40">
+                    <i class="fa-solid fa-microscope"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide text-amber-400 font-serif-tc flex items-center gap-2">
+                        敦煌壁畫鑑偽專案
+                        <span class="text-xs font-sans px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">STEAM/PBL 3D流體幾何逆向工程</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">流體軌跡逆向工程 (Forensic Math & 3D Spatial Trajectory Reconstruction)</p>
+                </div>
+            </div>
+            
+            <!-- Quick Preset Buttons -->
+            <div class="flex items-center gap-2 bg-slate-800/90 p-1.5 rounded-xl border border-slate-700 text-xs">
+                <span class="text-slate-400 px-2 font-medium">快速載入實驗情境:</span>
+                <button onclick="loadPreset('fake')" class="px-3 py-1.5 rounded-lg bg-red-900/60 hover:bg-red-800 border border-red-700/80 text-red-200 transition font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-spray-can text-red-400"></i> 現代甩彩贗品
+                </button>
+                <button onclick="loadPreset('authentic')" class="px-3 py-1.5 rounded-lg bg-teal-900/60 hover:bg-teal-800 border border-teal-700/80 text-teal-200 transition font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-paintbrush text-teal-400"></i> 古代靜態筆觸
+                </button>
+            </div>
+        </div>
+
+        <nav class="max-w-7xl mx-auto px-4 flex space-x-1 border-t border-slate-800/80 overflow-x-auto text-sm">
+            <button onclick="switchTab('tab-diagrams')" id="btn-tab-diagrams" class="tab-btn active px-4 py-2.5 whitespace-nowrap flex items-center gap-2 text-slate-300 hover:text-amber-400 transition">
+                <i class="fa-solid fa-diagram-project"></i> 1. 案件背景與 Wᵢ, Lᵢ 圖解
+            </button>
+            <button onclick="switchTab('tab-examples')" id="btn-tab-examples" class="tab-btn px-4 py-2.5 whitespace-nowrap flex items-center gap-2 text-slate-300 hover:text-amber-400 transition">
+                <i class="fa-solid fa-book-bookmark"></i> 2. 經典算例與引導試做
+            </button>
+            <button onclick="switchTab('tab-workbench')" id="btn-tab-workbench" class="tab-btn px-4 py-2.5 whitespace-nowrap flex items-center gap-2 text-slate-300 hover:text-amber-400 transition">
+                <i class="fa-solid fa-table-cells"></i> 3. 數據記錄試算表
+            </button>
+            <button onclick="switchTab('tab-2d')" id="btn-tab-2d" class="tab-btn px-4 py-2.5 whitespace-nowrap flex items-center gap-2 text-slate-300 hover:text-amber-400 transition">
+                <i class="fa-solid fa-draw-polygon"></i> 4. 2D 平面匯聚點
+            </button>
+            <button onclick="switchTab('tab-3d')" id="btn-tab-3d" class="tab-btn px-4 py-2.5 whitespace-nowrap flex items-center gap-2 text-slate-300 hover:text-amber-400 transition">
+                <i class="fa-solid fa-cube"></i> 5. 3D 空間源頭重構模擬
+            </button>
+            <button onclick="switchTab('tab-report')" id="btn-tab-report" class="tab-btn px-4 py-2.5 whitespace-nowrap flex items-center gap-2 text-slate-300 hover:text-amber-400 transition">
+                <i class="fa-solid fa-file-contract"></i> 6. 法醫鑑測判定報告
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+        <!-- TAB 1: 案件背景與深入圖解 -->
+        <section id="tab-diagrams" class="space-y-6">
+            
+            <!-- Historical Notice Banner -->
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-amber-500 shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <span class="text-xs uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halved"></i> 案件任務簡報 Case File #DH-2026-08
+                    </span>
+                    <h2 class="text-xl font-bold text-amber-200 font-serif-tc">
+                        檢驗市面流傳之「史前敦煌莫高窟壁畫殘片」真偽
+                    </h2>
+                    <p class="text-sm text-slate-300 leading-relaxed max-w-4xl">
+                        鑑定小組懷疑作偽者使用「筆刷甩彩」或「空氣噴槍」快速塑造古代壁畫斑駁質感。請運用法醫學中的<strong>血濺痕跡分析 (Bloodstain Pattern Analysis, BPA)</strong> 與<strong>流體軌跡逆向工程</strong>，精準測量各顆粒微觀短軸 <span class="math-symbol">W<sub>i</sub></span> 與長軸 <span class="math-symbol">L<sub>i</sub></span>，重構 3D 空間發射源頭 <span class="math-symbol">S(X<sub>0</sub>, Y<sub>0</sub>, Z̄)</span>！
+                    </p>
+                </div>
+                <div class="bg-red-950/60 border border-red-700/60 rounded-xl p-3 text-xs text-red-200 space-y-1 max-w-xs shrink-0">
+                    <div class="font-bold text-red-400 flex items-center gap-1">
+                        <i class="fa-solid fa-landmark"></i> 歷史與幾何破綻提示：
+                    </div>
+                    <p>敦煌莫高窟始建於十六國前秦時期（公元 366 年），歷史上並無「史前敦煌壁畫」。數學量化能給予作偽者物理級致命一擊！</p>
+                </div>
+            </div>
+
+            <!-- In-Depth Diagrams Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- DIAGRAM 1: Microscopic Droplet Measurement Rule (Wi & Li Clearly Labeled) -->
+                <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-magnifying-glass"></i> 圖解一：微觀顏料顆粒 <span class="math-symbol">W<sub>i</sub></span> 與 <span class="math-symbol">L<sub>i</sub></span> 量度規範
+                        </h3>
+                        <span class="text-xs px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">微觀幾何</span>
+                    </div>
+
+                    <!-- SVG Diagram for Droplet Splatter with explicit Wi and Li -->
+                    <div class="relative bg-slate-950 rounded-xl p-4 border border-slate-800 flex justify-center items-center overflow-hidden">
+                        <svg viewBox="0 0 500 240" class="w-full h-auto max-w-lg">
+                            <defs>
+                                <radialGradient id="dropGrad" cx="50%" cy="50%" r="50%">
+                                    <stop offset="0%" stop-color="#ef4444" />
+                                    <stop offset="100%" stop-color="#991b1b" />
+                                </radialGradient>
+                                <radialGradient id="tailGrad" cx="50%" cy="50%" r="50%">
+                                    <stop offset="0%" stop-color="#f87171" stop-opacity="0.6" />
+                                    <stop offset="100%" stop-color="#7f1d1d" stop-opacity="0.3" />
+                                </radialGradient>
+                            </defs>
+
+                            <!-- Background grid pattern -->
+                            <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" stroke-width="0.8"/>
+                            </pattern>
+                            <rect width="500" height="240" fill="url(#smallGrid)" />
+
+                            <!-- Trajectory flight line -->
+                            <line x1="40" y1="180" x2="420" y2="70" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6" />
+                            <text x="45" y="195" fill="#f59e0b" font-size="11" font-family="sans-serif">飛向飛行軌跡</text>
+
+                            <!-- Tail / Satellite Splatter (MUST IGNORE) -->
+                            <g transform="translate(350, 90) rotate(-26)">
+                                <ellipse cx="35" cy="0" rx="22" ry="6" fill="url(#tailGrad)" stroke="#ef4444" stroke-width="1" stroke-dasharray="2,2" />
+                                <circle cx="68" cy="0" r="3" fill="#ef4444" opacity="0.5" />
+                                <circle cx="78" cy="0" r="1.5" fill="#ef4444" opacity="0.3" />
+                            </g>
+
+                            <!-- Red Warning Box pointing to tail -->
+                            <path d="M 390 45 L 365 70" stroke="#ef4444" stroke-width="1.5" />
+                            <rect x="350" y="18" width="140" height="28" rx="5" fill="#450a0a" stroke="#dc2626" stroke-width="1"/>
+                            <text x="420" y="36" fill="#fca5a5" font-size="11" text-anchor="middle" font-weight="bold">❌ 務必忽略尾端 (Tail)</text>
+
+                            <!-- Main Ellipse Body -->
+                            <g transform="translate(210, 130) rotate(-26)">
+                                <!-- Main Ellipse -->
+                                <ellipse cx="0" cy="0" rx="75" ry="38" fill="url(#dropGrad)" stroke="#fca5a5" stroke-width="2" />
+                                
+                                <!-- Width W_i Dimension line -->
+                                <line x1="0" y1="-38" x2="0" y2="38" stroke="#22d3ee" stroke-width="2.5" />
+                                <line x1="-8" y1="-38" x2="8" y2="-38" stroke="#22d3ee" stroke-width="2" />
+                                <line x1="-8" y1="38" x2="8" y2="38" stroke="#22d3ee" stroke-width="2" />
+
+                                <!-- Length L_i Dimension line -->
+                                <line x1="-75" y1="0" x2="75" y2="0" stroke="#f59e0b" stroke-width="2.5" />
+                                <line x1="-75" y1="-8" x2="-75" y2="8" stroke="#f59e0b" stroke-width="2" />
+                                <line x1="75" y1="-8" x2="75" y2="8" stroke="#f59e0b" stroke-width="2" />
+                            </g>
+
+                            <!-- Text Labels Wi and Li -->
+                            <rect x="180" y="52" width="115" height="24" rx="4" fill="#083344" stroke="#0891b2" stroke-width="1"/>
+                            <text x="237" y="68" fill="#22d3ee" font-size="12" font-weight="bold" text-anchor="middle">短軸 Wᵢ (Width)</text>
+                            
+                            <rect x="180" y="190" width="115" height="24" rx="4" fill="#451a03" stroke="#d97706" stroke-width="1"/>
+                            <text x="237" y="206" fill="#f59e0b" font-size="12" font-weight="bold" text-anchor="middle">長軸 Lᵢ (Length)</text>
+
+                            <text x="95" y="115" fill="#f8fafc" font-size="12" font-weight="bold">顆粒主體 Pᵢ</text>
+                        </svg>
+                    </div>
+
+                    <div class="space-y-2 text-xs text-slate-300">
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
+                            <div class="font-bold text-amber-300">撞擊角 <span class="math-symbol">θ<sub>i</sub></span> 計算公式：</div>
+                            <p class="font-mono text-cyan-300 text-sm">$$\sin(\theta_i) = \frac{W_i}{L_i} \implies \theta_i = \arcsin\left(\frac{W_i}{L_i}\right)$$</p>
+                        </div>
+                        <div class="p-3 bg-red-950/40 border border-red-800/60 rounded-xl flex items-start gap-2.5">
+                            <i class="fa-solid fa-triangle-exclamation text-red-400 text-sm mt-0.5"></i>
+                            <div>
+                                <strong class="text-red-300 block mb-0.5">量度規範重點 (Measurement Protocol)：</strong>
+                                必須僅測量顆粒主橢圓體之短軸 <span class="math-symbol">W<sub>i</sub></span> 與長軸 <span class="math-symbol">L<sub>i</sub></span>。若包含尾端（Tail），會使長軸 <span class="math-symbol">L<sub>i</sub></span> 虛高，導致撞擊角 <span class="math-symbol">θ<sub>i</sub></span> 嚴重偏小！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DIAGRAM 2: Direction Angle alpha_i & Reverse Extension beta_i -->
+                <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-compass"></i> 圖解二：方向角 <span class="math-symbol">α<sub>i</sub></span> 與倒車延伸角 <span class="math-symbol">β<sub>i</sub></span>
+                        </h3>
+                        <span class="text-xs px-2.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">平面解析幾何</span>
+                    </div>
+
+                    <!-- SVG Diagram for Trajectory Angle -->
+                    <div class="relative bg-slate-950 rounded-xl p-4 border border-slate-800 flex justify-center items-center overflow-hidden">
+                        <svg viewBox="0 0 500 240" class="w-full h-auto max-w-lg">
+                            <pattern id="smallGrid2" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" stroke-width="0.8"/>
+                            </pattern>
+                            <rect width="500" height="240" fill="url(#smallGrid2)" />
+
+                            <!-- Axes at Point P_i -->
+                            <g transform="translate(280, 130)">
+                                <!-- X Axis -->
+                                <line x1="-120" y1="0" x2="160" y2="0" stroke="#475569" stroke-width="1.5" />
+                                <text x="145" y="-8" fill="#94a3b8" font-size="11">+X 軸</text>
+
+                                <!-- Y Axis -->
+                                <line x1="0" y1="80" x2="0" y2="-100" stroke="#475569" stroke-width="1.5" />
+                                <text x="8" y="-85" fill="#94a3b8" font-size="11">+Y 軸</text>
+
+                                <!-- Point P_i Center -->
+                                <circle cx="0" cy="0" r="5" fill="#22d3ee" />
+                                <text x="10" y="20" fill="#22d3ee" font-size="12" font-weight="bold">Pᵢ(xᵢ, yᵢ)</text>
+
+                                <!-- Forward Vector (Alpha = 35 deg) -->
+                                <line x1="0" y1="0" x2="130" y2="-91" stroke="#ef4444" stroke-width="2.5" />
+                                <polygon points="130,-91 118,-82 122,-98" fill="#ef4444" />
+                                <text x="90" y="-70" fill="#ef4444" font-size="11" font-weight="bold">前進方向 αᵢ</text>
+
+                                <!-- Reverse Vector (Beta_i = Alpha_i + 180) -->
+                                <line x1="0" y1="0" x2="-180" y2="126" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4" />
+                                <text x="-160" y="90" fill="#f59e0b" font-size="11" font-weight="bold">倒車延伸線 βᵢ = αᵢ + 180°</text>
+
+                                <!-- Arc for Alpha -->
+                                <path d="M 40 0 A 40 40 0 0 0 32.7 -22.9" fill="none" stroke="#ef4444" stroke-width="2" />
+                                <text x="48" y="-10" fill="#ef4444" font-size="11">αᵢ = 35°</text>
+
+                                <!-- Arc for Beta -->
+                                <path d="M 60 0 A 60 60 0 1 0 -49.1 34.4" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3" />
+                                <text x="-25" y="-45" fill="#f59e0b" font-size="11">βᵢ = 215°</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
+                        <div class="font-semibold text-amber-300">倒車軌跡直線方程 (Line Equation):</div>
+                        <p class="font-mono text-amber-200 text-sm">$$y - y_i = \tan(\alpha_i + 180^\circ) \cdot (x - x_i)$$</p>
+                        <p class="text-slate-400">通過顆粒中心 <span class="math-symbol">(x<sub>i</sub>, y<sub>i</sub>)</span> 背離飛濺延伸，解聯立方程可得 2D 匯聚點 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>)</span>。</p>
+                    </div>
+                </div>
+
+                <!-- DIAGRAM 3: 3D Right Triangle Trajectory Model -->
+                <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-shapes"></i> 圖解三：3D 空間源頭三角投影模型
+                        </h3>
+                        <span class="text-xs px-2.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">立體幾何</span>
+                    </div>
+
+                    <!-- SVG Diagram for 3D Triangle -->
+                    <div class="relative bg-slate-950 rounded-xl p-4 border border-slate-800 flex justify-center items-center overflow-hidden">
+                        <svg viewBox="0 0 500 240" class="w-full h-auto max-w-lg">
+                            <!-- Wall Plane at Z=0 -->
+                            <polygon points="50,30 220,10 220,210 50,230" fill="#1e293b" opacity="0.6" stroke="#475569" stroke-width="1.5" />
+                            <text x="60" y="55" fill="#94a3b8" font-size="11" font-weight="bold">壁畫牆面 (Wall Z=0)</text>
+
+                            <!-- Point P_i on Wall -->
+                            <circle cx="120" cy="140" r="5" fill="#ef4444" />
+                            <text x="65" y="160" fill="#ef4444" font-size="11" font-weight="bold">撞擊點 Pᵢ(xᵢ, yᵢ, 0)</text>
+
+                            <!-- 2D Convergence Point (X0, Y0) on Wall -->
+                            <circle cx="170" cy="80" r="5" fill="#22d3ee" />
+                            <text x="180" y="75" fill="#22d3ee" font-size="11" font-weight="bold">2D 匯聚點 (X₀, Y₀, 0)</text>
+
+                            <!-- Distance d_i line on Wall -->
+                            <line x1="120" y1="140" x2="170" y2="80" stroke="#22d3ee" stroke-width="2" stroke-dasharray="4,4" />
+                            <text x="105" y="100" fill="#22d3ee" font-size="11" font-weight="bold">平面距離 dᵢ</text>
+
+                            <!-- Spatial Source Point S in 3D Space (Z_i off the wall) -->
+                            <circle cx="390" cy="110" r="7" fill="#f59e0b" />
+                            <text x="340" y="90" fill="#f59e0b" font-size="12" font-weight="bold">3D 發射源頭 S(X₀, Y₀, Zᵢ)</text>
+
+                            <!-- Height Z_i line perpendicular to wall -->
+                            <line x1="170" y1="80" x2="390" y2="110" stroke="#a855f7" stroke-width="2.5" />
+                            <text x="260" y="85" fill="#a855f7" font-size="12" font-weight="bold">離牆高度 Zᵢ</text>
+
+                            <!-- Hypotenuse Flight Path Line -->
+                            <line x1="390" y1="110" x2="120" y2="140" stroke="#f59e0b" stroke-width="2.5" />
+
+                            <!-- Right Angle Mark at (X0,Y0) -->
+                            <path d="M 185 82 L 188 95 L 173 93" fill="none" stroke="#a855f7" stroke-width="1.5" />
+
+                            <!-- Angle Theta_i Mark at P_i -->
+                            <path d="M 140 126 A 25 25 0 0 0 145 137" fill="none" stroke="#f59e0b" stroke-width="2" />
+                            <text x="150" y="130" fill="#f59e0b" font-size="12" font-weight="bold">撞擊角 θᵢ</text>
+                        </svg>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block mb-1">撞擊角 <span class="math-symbol">θ<sub>i</sub></span> (極簡公式)</span>
+                            <p class="text-amber-300 font-mono">$$\theta_i = \arcsin\left(\frac{W_i}{L_i}\right)$$</p>
+                        </div>
+                        <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block mb-1">3D 重構離牆高度 <span class="math-symbol">Z<sub>i</sub></span></span>
+                            <p class="text-purple-300 font-mono">$$Z_i = d_i \cdot \tan(\theta_i)$$</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DIAGRAM 4: Authentic vs Fake Physical Comparison -->
+                <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                                <i class="fa-solid fa-code-compare"></i> 圖解四：古代真品與現代贗品幾何對比
+                            </h3>
+                            <span class="text-xs px-2.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">法醫鑑測判據</span>
+                        </div>
+
+                        <!-- Comparison SVG Grid -->
+                        <div class="grid grid-cols-2 gap-3 mt-3">
+                            <!-- Authentic Brushwork -->
+                            <div class="bg-slate-950 p-3 rounded-xl border border-teal-800/60 space-y-2">
+                                <span class="text-xs font-bold text-teal-400 flex items-center gap-1">
+                                    <i class="fa-solid fa-paintbrush"></i> 古代毛筆靜態著色
+                                </span>
+                                <div class="h-28 bg-slate-900 rounded-lg flex items-center justify-center relative overflow-hidden border border-slate-800">
+                                    <circle cx="35" cy="40" r="18" fill="#2a9d8f" opacity="0.6" />
+                                    <circle cx="85" cy="65" r="22" fill="#2a9d8f" opacity="0.5" />
+                                    <circle cx="120" cy="35" r="15" fill="#2a9d8f" opacity="0.7" />
+                                    <text x="10" y="102" fill="#94a3b8" font-size="10">Wᵢ ≈ Lᵢ (接近正圓，θᵢ ≈ 90°)</text>
+                                </div>
+                                <p class="text-slate-300 text-xs leading-tight">
+                                    倒車延伸線呈平行散亂，<strong>無單一 3D 匯聚源頭</strong>，高度 <span class="math-symbol">Z<sub>i</sub></span> 標準差極大。
+                                </p>
+                            </div>
+
+                            <!-- Modern Forgery Splash -->
+                            <div class="bg-slate-950 p-3 rounded-xl border border-red-800/60 space-y-2">
+                                <span class="text-xs font-bold text-red-400 flex items-center gap-1">
+                                    <i class="fa-solid fa-spray-can"></i> 現代動態甩彩 / 噴槍
+                                </span>
+                                <div class="h-28 bg-slate-900 rounded-lg flex items-center justify-center relative overflow-hidden border border-slate-800">
+                                    <line x1="20" y1="20" x2="130" y2="90" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2" />
+                                    <line x1="140" y1="20" x2="20" y2="85" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2" />
+                                    <line x1="80" y1="10" x2="80" y2="90" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2" />
+
+                                    <ellipse cx="20" cy="20" rx="8" ry="3" fill="#ef4444" transform="rotate(30 20 20)" />
+                                    <ellipse cx="140" cy="20" rx="10" ry="4" fill="#ef4444" transform="rotate(-25 140 20)" />
+                                    <ellipse cx="80" cy="10" rx="7" ry="3" fill="#ef4444" transform="rotate(90 80 10)" />
+
+                                    <circle cx="80" cy="85" r="5" fill="#22d3ee" />
+                                    <text x="10" y="102" fill="#fca5a5" font-size="10">高強度收斂至 3D 空間源頭 S</text>
+                                </div>
+                                <p class="text-slate-300 text-xs leading-tight">
+                                    軌跡精準交會於 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>)</span>，重構高度高度集中（<span class="math-symbol">σ<sub>Z</sub> ≤ 8 cm</span>），<strong>鐵證為贗品</strong>。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TAB 2: 經典算例與引導試做 -->
+        <section id="tab-examples" class="space-y-6 hidden">
+            
+            <!-- Concrete Worked Example 1 -->
+            <div class="glass-panel p-6 rounded-2xl border border-red-900/40 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-3 gap-2">
+                    <h3 class="text-lg font-bold text-red-400 flex items-center gap-2">
+                        <i class="fa-solid fa-calculator"></i> 經典算例：甩彩顆粒 <span class="math-symbol">P<sub>1</sub></span> 四步逆向工程運算
+                    </h3>
+                    <span class="text-xs px-3 py-1 rounded-full bg-red-950 text-red-300 border border-red-800 font-mono">典型作偽數據</span>
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+                    <p class="text-slate-200 text-sm font-semibold">
+                        <i class="fa-solid fa-file-lines text-amber-400 mr-1.5"></i> 題目情境條件：
+                    </p>
+                    <p class="leading-relaxed">
+                        鑑測人員在牆面上測得顏料微粒 <span class="math-symbol">P<sub>1</sub></span> 坐標為 <span class="math-symbol">(12.0 cm, 15.0 cm)</span>。顯微鏡下量得短軸 <span class="math-symbol">W<sub>1</sub> = 2.1 mm</span>，長軸 <span class="math-symbol">L<sub>1</sub> = 4.2 mm</span>，前進指向角 <span class="math-symbol">α<sub>1</sub> = 45°</span>。已知 2D 匯聚點解得為 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>) = (0.0 cm, 0.0 cm)</span>。求撞擊角 <span class="math-symbol">θ<sub>1</sub></span>、距離 <span class="math-symbol">d<sub>1</sub></span> 與離牆高度 <span class="math-symbol">Z<sub>1</sub></span>。
+                    </p>
+                </div>
+
+                <!-- Step-by-Step Solution -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    
+                    <!-- Step 1 -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="font-bold text-amber-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                            <span>步驟一：求解撞擊角 <span class="math-symbol">θ<sub>1</sub></span></span>
+                            <span class="text-slate-500 font-mono">Step 1</span>
+                        </div>
+                        <p class="text-slate-300">帶入短長軸比例：</p>
+                        <div class="p-2 bg-slate-900 rounded font-mono text-amber-300 text-xs">
+                            $$\sin(\theta_1) = \frac{W_1}{L_1} = \frac{2.1\text{ mm}}{4.2\text{ mm}} = 0.5$$
+                        </div>
+                        <p class="text-teal-300 font-bold">
+                            $$\theta_1 = \arcsin(0.5) = 30.0^\circ$$
+                        </p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="font-bold text-amber-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                            <span>步驟二：求離牆 2D 距離 <span class="math-symbol">d<sub>1</sub></span></span>
+                            <span class="text-slate-500 font-mono">Step 2</span>
+                        </div>
+                        <p class="text-slate-300">計算微粒到匯聚點距離：</p>
+                        <div class="p-2 bg-slate-900 rounded font-mono text-amber-300 text-xs">
+                            $$d_1 = \sqrt{(12.0 - 0)^2 + (15.0 - 0)^2}$$
+                        </div>
+                        <p class="text-teal-300 font-bold">
+                            $$d_1 = \sqrt{144 + 225} = \sqrt{369} \approx 19.21\text{ cm}$$
+                        </p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div class="font-bold text-amber-400 border-b border-slate-800 pb-1 flex items-center justify-between">
+                            <span>步驟三：重構 3D 源頭高度 <span class="math-symbol">Z<sub>1</sub></span></span>
+                            <span class="text-slate-500 font-mono">Step 3</span>
+                        </div>
+                        <p class="text-slate-300">正切函數求解高度：</p>
+                        <div class="p-2 bg-slate-900 rounded font-mono text-amber-300 text-xs">
+                            $$Z_1 = d_1 \cdot \tan(\theta_1) = 19.21 \times \tan(30^\circ)$$
+                        </div>
+                        <p class="text-purple-300 font-bold">
+                            $$Z_1 = 19.21 \times 0.57735 \approx 11.09\text{ cm}$$
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Guided Quiz Practice -->
+            <div class="glass-panel p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-user-pen"></i> 學生實作關卡：微粒 <span class="math-symbol">P<sub>2</sub></span> 演練驗證
+                    </h3>
+                    <span class="text-xs px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono">學生自測</span>
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
+                    <p class="text-slate-200">
+                        <strong class="text-amber-300">演練條件：</strong>
+                        觀察到顆粒 <span class="math-symbol">P<sub>2</sub></span> 位於 <span class="math-symbol">(16.0 cm, 12.0 cm)</span>，短軸 <span class="math-symbol">W<sub>2</sub> = 3.0 mm</span>，長軸 <span class="math-symbol">L<sub>2</sub> = 6.0 mm</span>。2D 匯聚點為 <span class="math-symbol">(0, 0)</span>。請計算並輸入：
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <!-- Quiz Q1 -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                        <div>
+                            <span class="font-bold text-amber-400 block mb-1">第 1 題：撞擊角 <span class="math-symbol">θ<sub>2</sub></span></span>
+                            <p class="text-slate-400 mb-2">$\sin(\theta_2) = \frac{3.0}{6.0} = 0.5$</p>
+                            <label class="block text-slate-300 mb-1">請輸入 $\theta_2$ (°):</label>
+                            <input type="number" id="quiz-q1" placeholder="例如 30" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button onclick="checkQuiz1()" class="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold py-2 rounded-lg transition">
+                            提交並驗證
+                        </button>
+                        <div id="quiz-q1-feedback" class="hidden text-xs p-2.5 rounded-lg"></div>
+                    </div>
+
+                    <!-- Quiz Q2 -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                        <div>
+                            <span class="font-bold text-amber-400 block mb-1">第 2 題：平面距離 <span class="math-symbol">d<sub>2</sub></span></span>
+                            <p class="text-slate-400 mb-2">$d_2 = \sqrt{16.0^2 + 12.0^2}$</p>
+                            <label class="block text-slate-300 mb-1">請輸入 $d_2$ (cm):</label>
+                            <input type="number" step="0.1" id="quiz-q2" placeholder="例如 20.0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button onclick="checkQuiz2()" class="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold py-2 rounded-lg transition">
+                            提交並驗證
+                        </button>
+                        <div id="quiz-q2-feedback" class="hidden text-xs p-2.5 rounded-lg"></div>
+                    </div>
+
+                    <!-- Quiz Q3 -->
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3">
+                        <div>
+                            <span class="font-bold text-amber-400 block mb-1">第 3 題：源頭高度 <span class="math-symbol">Z<sub>2</sub></span></span>
+                            <p class="text-slate-400 mb-2">$Z_2 = 20.0 \times \tan(30^\circ)$</p>
+                            <label class="block text-slate-300 mb-1">請輸入 $Z_2$ (cm):</label>
+                            <input type="number" step="0.01" id="quiz-q3" placeholder="例如 11.55" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button onclick="checkQuiz3()" class="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold py-2 rounded-lg transition">
+                            提交並驗證
+                        </button>
+                        <div id="quiz-q3-feedback" class="hidden text-xs p-2.5 rounded-lg"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: 數據記錄試算表 -->
+        <section id="tab-workbench" class="space-y-6 hidden">
+            <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-table-cells"></i> 學生實驗數據記錄與自動試算表
+                        </h2>
+                        <p class="text-xs text-slate-400">輸入各微粒 <span class="math-symbol">P<sub>i</sub></span> 之短軸 <span class="math-symbol">W<sub>i</sub></span> 與長軸 <span class="math-symbol">L<sub>i</sub></span>，系統自動計算倒車方向角 <span class="math-symbol">β<sub>i</sub></span> 與 3D 高度 <span class="math-symbol">Z<sub>i</sub></span>。</p>
+                    </div>
+
+                    <!-- Action Controls -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button onclick="addNewRow()" class="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg flex items-center gap-1.5 transition shadow">
+                            <i class="fa-solid fa-plus"></i> 新增測量點 Pᵢ
+                        </button>
+                        <button onclick="exportCSV()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-csv"></i> 匯出 CSV
+                        </button>
+                        <button onclick="exportExcel()" class="px-3 py-2 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 border border-emerald-600 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-excel"></i> 匯出 Excel
+                        </button>
+                        <label class="px-3 py-2 bg-sky-800 hover:bg-sky-700 text-sky-100 border border-sky-600 rounded-lg cursor-pointer flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-upload"></i> 載入 Excel/CSV
+                            <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileUpload(event)">
+                        </label>
+                        <button onclick="clearAllData()" class="px-3 py-2 bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-800 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-trash-can"></i> 清空
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Auto-Calculated Stats -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                    <div>
+                        <span class="text-slate-400 block">2D 匯聚點 X₀ (cm):</span>
+                        <span id="summary-x0" class="text-base font-bold text-amber-400 font-mono">0.00</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">2D 匯聚點 Y₀ (cm):</span>
+                        <span id="summary-y0" class="text-base font-bold text-amber-400 font-mono">0.00</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">平均 3D 源頭高度 Z̄ (cm):</span>
+                        <span id="summary-zmean" class="text-base font-bold text-teal-400 font-mono">0.00</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">高度離散標準差 σ_Z (cm):</span>
+                        <span id="summary-zstd" class="text-base font-bold text-purple-400 font-mono">0.00</span>
+                    </div>
+                </div>
+
+                <!-- Table View -->
+                <div class="overflow-x-auto border border-slate-800 rounded-xl">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-950 text-amber-300 border-b border-slate-800 font-semibold uppercase tracking-wider">
+                            <tr>
+                                <th class="p-3 text-center">編號 Pᵢ</th>
+                                <th class="p-3">Xᵢ (cm)</th>
+                                <th class="p-3">Yᵢ (cm)</th>
+                                <th class="p-3 text-cyan-300">短軸 Wᵢ (mm)</th>
+                                <th class="p-3 text-amber-300">長軸 Lᵢ (mm)</th>
+                                <th class="p-3">前進角 αᵢ (°)</th>
+                                <th class="p-3 bg-slate-900 text-amber-400">撞擊角 θᵢ (°)</th>
+                                <th class="p-3 bg-slate-900 text-amber-400">倒車角 βᵢ (°)</th>
+                                <th class="p-3 bg-slate-900 text-teal-400">平面距離 dᵢ (cm)</th>
+                                <th class="p-3 bg-slate-900 text-purple-400">源頭高度 Zᵢ (cm)</th>
+                                <th class="p-3 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody" class="divide-y divide-slate-800 text-slate-200">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+                    <span><i class="fa-solid fa-circle-info text-amber-400 mr-1.5"></i> 修改數值後，系統將即時聯立運算並更新 2D 與 3D 圖表。</span>
+                    <span id="rowCountTag" class="font-mono text-amber-400 font-bold">已記錄 0 個觀測點</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: 2D 平面匯聚點 -->
+        <section id="tab-2d" class="space-y-6 hidden">
+            <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-draw-polygon"></i> 2D 平面倒車軌跡與匯聚點 (Point of Convergence)
+                        </h2>
+                        <p class="text-xs text-slate-400">將各顆粒依倒車方向延伸直線 (<span class="math-symbol">β<sub>i</sub> = α<sub>i</sub> + 180°</span>)，以最小二乘法求解最佳交會點 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>)</span>。</p>
+                    </div>
+
+                    <div class="flex items-center gap-3 text-xs bg-slate-950 p-2 rounded-xl border border-slate-800">
+                        <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chkShowRays" checked onchange="render2DCanvas()" class="accent-amber-500">
+                            顯示倒車延伸線
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chkShowLabels" checked onchange="render2DCanvas()" class="accent-amber-500">
+                            顯示 Wᵢ, Lᵢ 標籤
+                        </label>
+                        <button onclick="render2DCanvas()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700">
+                            <i class="fa-solid fa-arrows-rotate mr-1"></i> 重刷
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2D Canvas Container -->
+                <div class="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex justify-center items-center">
+                    <canvas id="canvas2D" width="900" height="520" class="w-full h-auto cursor-crosshair bg-slate-950"></canvas>
+                    
+                    <!-- Canvas Overlay Legend -->
+                    <div class="absolute bottom-3 left-3 bg-slate-900/90 border border-slate-700/80 p-3 rounded-xl text-xs space-y-1 shadow-xl backdrop-blur">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                            <span>顏料顆粒位置 <span class="math-symbol">P<sub>i</sub>(x<sub>i</sub>, y<sub>i</sub>)</span></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 h-0.5 bg-amber-400 inline-block"></span>
+                            <span>倒車延伸軌跡線 <span class="math-symbol">β<sub>i</sub></span></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-cyan-400 border border-white inline-block"></span>
+                            <span>2D 最佳匯聚點 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>)</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: 3D 空間源頭重構模擬 -->
+        <section id="tab-3d" class="space-y-6 hidden">
+            <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-cube"></i> 3D 空間源頭重構模擬 (3D Point of Origin Simulation)
+                        </h2>
+                        <p class="text-xs text-slate-400">結合各微粒撞擊角 <span class="math-symbol">θ<sub>i</sub></span> 與平面距離 <span class="math-symbol">d<sub>i</sub></span>，重構 3D 空間發射源頭 <span class="math-symbol">S(X<sub>0</sub>, Y<sub>0</sub>, Z̄)</span>。</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button onclick="toggle3DCone()" id="btnToggleCone" class="px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800 border border-purple-700 rounded-lg text-purple-200 transition">
+                            <i class="fa-solid fa-stroopwafel mr-1"></i> 切換 3D 噴塗錐體
+                        </button>
+                        <button onclick="toggle3DAnimation()" id="btnAnimate3D" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg flex items-center gap-1.5 transition shadow">
+                            <i class="fa-solid fa-play"></i> 播放粒子飛濺
+                        </button>
+                        <button onclick="reset3DCamera()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-camera"></i> 重設視角
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Three.js Canvas Box -->
+                <div class="relative w-full h-[520px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
+                    <div id="threejs-container" class="w-full h-full"></div>
+                    
+                    <!-- Overlay Legend -->
+                    <div class="absolute top-3 left-3 bg-slate-900/90 border border-slate-700/80 p-3 rounded-xl text-xs space-y-1.5 backdrop-blur shadow-lg">
+                        <div class="font-bold text-amber-400 border-b border-slate-800 pb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-cube"></i> 3D 空間幾何圖例
+                        </div>
+                        <div class="text-slate-300"><span class="text-amber-400 font-bold">金黃大球 S:</span> 3D 發射源頭 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>, Z̄)</span></div>
+                        <div class="text-slate-300"><span class="text-red-400 font-bold">紅色橢圓:</span> 微粒 <span class="math-symbol">P<sub>i</sub></span> (依 <span class="math-symbol">W<sub>i</sub>/L<sub>i</sub></span> 比例繪製)</div>
+                        <div class="text-slate-300"><span class="text-purple-400 font-bold">紫色虛線 Zᵢ:</span> 垂直離牆高度柱</div>
+                        <div class="text-slate-300"><span class="text-amber-300 font-bold">黃色飛線:</span> 3D 飛行軌跡</div>
+                        <div class="pt-1 border-t border-slate-800 font-mono text-cyan-300" id="origin3DCoord">
+                            空間源頭: S(0, 0, 0) cm
+                        </div>
+                    </div>
+
+                    <div class="absolute bottom-3 right-3 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-400">
+                        <i class="fa-solid fa-hand-pointer mr-1"></i> 滑鼠左鍵旋轉 | 右鍵平移 | 滾輪縮放
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 6: 法醫鑑測判定報告 -->
+        <section id="tab-report" class="space-y-6 hidden">
+            <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6 shadow-2xl">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-amber-400 font-serif-tc flex items-center gap-2">
+                            <i class="fa-solid fa-file-signature"></i> 敦煌壁畫流體軌跡法醫級鑑測報告
+                        </h2>
+                        <p class="text-xs text-slate-400">Forensic Trajectory Analysis & Authenticity Certificate</p>
+                    </div>
+
+                    <button onclick="window.print()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg flex items-center gap-2 text-xs transition shadow">
+                        <i class="fa-solid fa-print"></i> 列印 / 匯出 PDF 報告
+                    </button>
+                </div>
+
+                <!-- Certificate Card -->
+                <div class="bg-slate-950 border-2 border-amber-500/30 rounded-2xl p-6 text-slate-200 space-y-6 shadow-2xl">
+                    <div class="flex justify-between items-start border-b border-slate-800 pb-4">
+                        <div>
+                            <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block">Forensic Artifact Certificate</span>
+                            <h3 class="text-2xl font-bold text-amber-300 font-serif-tc">莫高窟壁畫顏料飛濺逆向工程鑑定書</h3>
+                        </div>
+                        <div class="text-right text-xs text-slate-400 font-mono">
+                            <div>報告編號: DH-2026-BPA-088</div>
+                            <div>鑑定日期: <span id="report-date">2026-10-16</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 block">分析微粒總數:</span>
+                            <span id="rpt-count" class="text-lg font-bold text-white font-mono">0 個</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 block">2D 匯聚點 (X₀, Y₀):</span>
+                            <span id="rpt-2d-xy" class="text-lg font-bold text-amber-400 font-mono">(0, 0) cm</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 block">平均 3D 源頭高度 (Z̄):</span>
+                            <span id="rpt-z-mean" class="text-lg font-bold text-teal-400 font-mono">0.00 cm</span>
+                        </div>
+                        <div class="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                            <span class="text-slate-400 block">高度標準差 (σ_Z):</span>
+                            <span id="rpt-z-std" class="text-lg font-bold text-purple-400 font-mono">0.00 cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Final Verdict Banner -->
+                    <div id="verdictBox" class="p-5 rounded-2xl border flex items-start gap-4 transition-all">
+                        <div id="verdictIcon" class="text-3xl"></div>
+                        <div class="space-y-1">
+                            <div id="verdictTitle" class="text-lg font-bold"></div>
+                            <p id="verdictDesc" class="text-xs leading-relaxed"></p>
+                        </div>
+                    </div>
+
+                    <!-- Decision Criteria Reference Table -->
+                    <div class="space-y-2">
+                        <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider">鑑測判讀依據標準對照表</h4>
+                        <div class="overflow-x-auto border border-slate-800 rounded-xl">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">物理特徵與數據</th>
+                                        <th class="p-3">3D 高度 <span class="math-symbol">Z<sub>i</sub></span> 分佈</th>
+                                        <th class="p-3">2D 直線交會性</th>
+                                        <th class="p-3">鑑定結論</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800 text-slate-300">
+                                    <tr class="bg-red-950/20">
+                                        <td class="p-3 font-semibold text-red-300">現代甩彩 / 噴槍飛濺</td>
+                                        <td class="p-3">高度極度集中 (<span class="math-symbol">σ<sub>Z</sub> ≤ 8 cm</span>)</td>
+                                        <td class="p-3">極高收斂於單一交點 <span class="math-symbol">(X<sub>0</sub>, Y<sub>0</sub>)</span></td>
+                                        <td class="p-3 font-bold text-red-400">贗品 (FORGERY)</td>
+                                    </tr>
+                                    <tr class="bg-teal-950/20">
+                                        <td class="p-3 font-semibold text-teal-300">古代毛筆靜態暈染</td>
+                                        <td class="p-3">撞擊角 <span class="math-symbol">θ<sub>i</sub> ≈ 90°</span>，高度發散</td>
+                                        <td class="p-3">無有效匯聚點，射線呈平行散亂</td>
+                                        <td class="p-3 font-bold text-teal-400">符合真品特徵 (AUTHENTIC)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Signatures -->
+                    <div class="pt-6 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
+                        <div class="space-y-1.5">
+                            <div>實驗操作學生姓名: <input type="text" placeholder="請輸入姓名" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200"></div>
+                            <div>指導老師簽署: <input type="text" placeholder="請輸入簽名" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-slate-200"></div>
+                        </div>
+                        <div class="text-center sm:text-right">
+                            <div class="font-serif-tc italic text-amber-500 font-bold">Dunhuang Fresco Forensic Science Lab</div>
+                            <div>STEAM & PBL Integrated Math Simulator</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900/80 border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+        <p>敦煌壁畫鑑偽專案：流體軌跡逆向工程模擬器 &copy; 2026 | 高中數學 & 物理跨學科 (STEAM/PBL) 教學平台</p>
+    </footer>
+
+    <script>
+        /* Global State Variables */
+        let dataset = [];
+        let convergence2D = { x0: 0, y0: 0 };
+        let currentTab = 'tab-diagrams';
+        
+        // Three.js 3D Scene globals
+        let scene, camera, renderer, controls;
+        let droplets3DGroup, rays3DGroup, originMarker3D, particles3DGroup, cone3DMesh;
+        let is3DAnimating = false;
+        let show3DCone = true;
+
+        /* Preset Datasets with Wi and Li */
+        const presetFake = [
+            { id: 1, x: 12.0, y: 15.0, w: 2.1, l: 4.2, alpha: 45.0 },
+            { id: 2, x: 25.0, y: 28.0, w: 2.8, l: 5.6, alpha: 40.0 },
+            { id: 3, x: -15.0, y: 18.0, w: 1.8, l: 3.6, alpha: 135.0 },
+            { id: 4, x: -22.0, y: 30.0, w: 3.0, l: 6.0, alpha: 130.0 },
+            { id: 5, x: 5.0, y: 35.0, w: 2.5, l: 5.0, alpha: 85.0 },
+            { id: 6, x: -8.0, y: 38.0, w: 2.2, l: 4.4, alpha: 95.0 }
+        ];
+
+        const presetAuthentic = [
+            { id: 1, x: 10.0, y: 12.0, w: 3.8, l: 4.0, alpha: 10.0 },
+            { id: 2, x: 22.0, y: 25.0, w: 4.9, l: 5.0, alpha: 120.0 },
+            { id: 3, x: -12.0, y: 15.0, w: 2.9, l: 3.0, alpha: 200.0 },
+            { id: 4, x: -18.0, y: 28.0, w: 5.8, l: 6.0, alpha: 310.0 },
+            { id: 5, x: 2.0, y: 32.0, w: 3.9, l: 4.0, alpha: 80.0 }
+        ];
+
+        /* Safe KaTeX / Math Parser for Google Sites Embedding */
+        function triggerMathRender(targetElem) {
+            try {
+                if (window.renderMathInElement) {
+                    renderMathInElement(targetElem || document.body, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false }
+                        ],
+                        throwOnError: false
+                    });
+                }
+            } catch (err) {
+                console.warn("KaTeX render notice:", err);
+            }
+        }
+
+        /* Single Drop Math Calculation */
+        function calculateDropMath(drop) {
+            let ratio = Math.min(1.0, Math.max(0.01, drop.w / drop.l));
+            let thetaRad = Math.asin(ratio);
+            let thetaDeg = thetaRad * (180 / Math.PI);
+            
+            let betaDeg = (drop.alpha + 180) % 360;
+            let betaRad = betaDeg * (Math.PI / 180);
+
+            return { thetaDeg, thetaRad, betaDeg, betaRad };
+        }
+
+        /* Least Squares 2D Convergence Solver */
+        function solve2DConvergence() {
+            if (dataset.length < 2) {
+                convergence2D = { x0: 0, y0: 0 };
+                return;
+            }
+
+            let a11 = 0, a12 = 0, a21 = 0, a22 = 0;
+            let b1 = 0, b2 = 0;
+
+            dataset.forEach(drop => {
+                let math = calculateDropMath(drop);
+                let m = Math.tan(math.betaRad);
+                if (Math.abs(m) > 1e4) m = Math.sign(m) * 1e4;
+
+                a11 += m * m;
+                a12 += -m;
+                a21 += -m;
+                a22 += 1;
+
+                b1 += m * (m * drop.x - drop.y);
+                b2 += -1 * (m * drop.x - drop.y);
+            });
+
+            let det = a11 * a22 - a12 * a21;
+            let x0 = 0, y0 = 0;
+
+            if (Math.abs(det) > 1e-6) {
+                x0 = (b1 * a22 - b2 * a12) / det;
+                y0 = (a11 * b2 - a21 * b1) / det;
+            } else {
+                x0 = dataset.reduce((acc, d) => acc + d.x, 0) / dataset.length;
+                y0 = dataset.reduce((acc, d) => acc + d.y, 0) / dataset.length;
+            }
+
+            convergence2D = {
+                x0: parseFloat(x0.toFixed(2)),
+                y0: parseFloat(y0.toFixed(2))
+            };
+        }
+
+        function updateCalculations() {
+            solve2DConvergence();
+
+            let zValues = [];
+
+            dataset.forEach(drop => {
+                let math = calculateDropMath(drop);
+                let dx = drop.x - convergence2D.x0;
+                let dy = drop.y - convergence2D.y0;
+                let d = Math.sqrt(dx * dx + dy * dy);
+                let z = d * Math.tan(math.thetaRad);
+
+                drop.thetaDeg = math.thetaDeg;
+                drop.betaDeg = math.betaDeg;
+                drop.d = d;
+                drop.z = z;
+
+                zValues.push(z);
+            });
+
+            let zMean = zValues.length > 0 ? zValues.reduce((a, b) => a + b, 0) / zValues.length : 0;
+            let variance = zValues.length > 1 ? zValues.reduce((a, b) => a + Math.pow(b - zMean, 2), 0) / (zValues.length - 1) : 0;
+            let zStd = Math.sqrt(variance);
+
+            document.getElementById('summary-x0').innerText = convergence2D.x0.toFixed(2);
+            document.getElementById('summary-y0').innerText = convergence2D.y0.toFixed(2);
+            document.getElementById('summary-zmean').innerText = zMean.toFixed(2);
+            document.getElementById('summary-zstd').innerText = zStd.toFixed(2);
+
+            document.getElementById('rowCountTag').innerText = `已記錄 ${dataset.length} 個觀測點`;
+
+            render2DCanvas();
+            update3DScene(zMean);
+            updateReportData(zMean, zStd);
+        }
+
+        /* Render Data Table */
+        function renderTable() {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+
+            dataset.forEach((drop, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50 transition';
+                
+                tr.innerHTML = `
+                    <td class="p-3 text-center font-mono font-bold text-amber-400">P${drop.id}</td>
+                    <td class="p-3"><input type="number" step="0.1" value="${drop.x}" onchange="updateDropValue(${index}, 'x', this.value)" class="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200"></td>
+                    <td class="p-3"><input type="number" step="0.1" value="${drop.y}" onchange="updateDropValue(${index}, 'y', this.value)" class="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-amber-200"></td>
+                    <td class="p-3 bg-cyan-950/30"><input type="number" step="0.1" value="${drop.w}" onchange="updateDropValue(${index}, 'w', this.value)" class="w-16 bg-slate-900 border border-cyan-700 rounded px-2 py-1 text-xs font-bold text-cyan-300"></td>
+                    <td class="p-3 bg-amber-950/30"><input type="number" step="0.1" value="${drop.l}" onchange="updateDropValue(${index}, 'l', this.value)" class="w-16 bg-slate-900 border border-amber-700 rounded px-2 py-1 text-xs font-bold text-amber-300"></td>
+                    <td class="p-3"><input type="number" step="1" value="${drop.alpha}" onchange="updateDropValue(${index}, 'alpha', this.value)" class="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs"></td>
+                    <td class="p-3 font-mono text-amber-300 font-semibold bg-slate-900/60">${(drop.thetaDeg || 0).toFixed(1)}°</td>
+                    <td class="p-3 font-mono text-amber-300 bg-slate-900/60">${(drop.betaDeg || 0).toFixed(0)}°</td>
+                    <td class="p-3 font-mono text-teal-300 bg-slate-900/60">${(drop.d || 0).toFixed(2)}</td>
+                    <td class="p-3 font-mono text-purple-300 font-bold bg-slate-900/60">${(drop.z || 0).toFixed(2)}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteRow(${index})" class="text-red-400 hover:text-red-300 p-1">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            updateCalculations();
+        }
+
+        function updateDropValue(index, field, value) {
+            dataset[index][field] = parseFloat(value) || 0;
+            updateCalculations();
+            renderTable();
+        }
+
+        function addNewRow() {
+            const nextId = dataset.length > 0 ? Math.max(...dataset.map(d => d.id)) + 1 : 1;
+            dataset.push({ id: nextId, x: 0, y: 0, w: 2.0, l: 4.0, alpha: 45 });
+            renderTable();
+        }
+
+        function deleteRow(index) {
+            dataset.splice(index, 1);
+            renderTable();
+        }
+
+        function clearAllData() {
+            dataset = [];
+            renderTable();
+        }
+
+        function loadPreset(type) {
+            if (type === 'fake') dataset = JSON.parse(JSON.stringify(presetFake));
+            else if (type === 'authentic') dataset = JSON.parse(JSON.stringify(presetAuthentic));
+            renderTable();
+        }
+
+        function switchTab(tabId) {
+            currentTab = tabId;
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById(`btn-${tabId}`).classList.add('active');
+
+            if (tabId === 'tab-2d') setTimeout(render2DCanvas, 50);
+            else if (tabId === 'tab-3d') setTimeout(() => { resize3DCanvas(); updateCalculations(); }, 50);
+
+            triggerMathRender(document.getElementById(tabId));
+        }
+
+        /* Quiz Checkers */
+        function checkQuiz1() {
+            let val = parseFloat(document.getElementById('quiz-q1').value);
+            let feedback = document.getElementById('quiz-q1-feedback');
+            feedback.classList.remove('hidden', 'bg-teal-950', 'text-teal-300', 'bg-red-950', 'text-red-300');
+            
+            if (Math.abs(val - 30) < 0.5) {
+                feedback.classList.add('bg-teal-950', 'text-teal-300', 'border', 'border-teal-800');
+                feedback.innerHTML = '<i class="fa-solid fa-circle-check mr-1"></i> 正確！ $\\sin(30^\\circ) = \\frac{W_2}{L_2} = 0.5 \\implies \\theta_2 = 30^\\circ$。';
+            } else {
+                feedback.classList.add('bg-red-950', 'text-red-300', 'border', 'border-red-800');
+                feedback.innerHTML = '<i class="fa-solid fa-circle-xmark mr-1"></i> 提示：$\\arcsin(3.0 / 6.0) = 30^\\circ$。';
+            }
+            triggerMathRender(feedback);
+        }
+
+        function checkQuiz2() {
+            let val = parseFloat(document.getElementById('quiz-q2').value);
+            let feedback = document.getElementById('quiz-q2-feedback');
+            feedback.classList.remove('hidden');
+            
+            if (Math.abs(val - 20) < 0.2) {
+                feedback.className = 'text-xs p-2.5 rounded-lg bg-teal-950 text-teal-300 border border-teal-800';
+                feedback.innerHTML = '<i class="fa-solid fa-circle-check mr-1"></i> 正確！ $d_2 = \\sqrt{16^2 + 12^2} = \\sqrt{400} = 20.0\\text{ cm}$。';
+            } else {
+                feedback.className = 'text-xs p-2.5 rounded-lg bg-red-950 text-red-300 border border-red-800';
+                feedback.innerHTML = '<i class="fa-solid fa-circle-xmark mr-1"></i> 提示：$\\sqrt{16^2 + 12^2} = 20.0$。';
+            }
+            triggerMathRender(feedback);
+        }
+
+        function checkQuiz3() {
+            let val = parseFloat(document.getElementById('quiz-q3').value);
+            let feedback = document.getElementById('quiz-q3-feedback');
+            feedback.classList.remove('hidden');
+            
+            if (Math.abs(val - 11.55) < 0.2) {
+                feedback.className = 'text-xs p-2.5 rounded-lg bg-teal-950 text-teal-300 border border-teal-800';
+                feedback.innerHTML = '<i class="fa-solid fa-circle-check mr-1"></i> 正確！ $Z_2 = 20.0 \\times \\tan(30^\\circ) \\approx 11.55\\text{ cm}$。';
+            } else {
+                feedback.className = 'text-xs p-2.5 rounded-lg bg-red-950 text-red-300 border border-red-800';
+                feedback.innerHTML = '<i class="fa-solid fa-circle-xmark mr-1"></i> 提示：$20.0 \\times 0.57735 \\approx 11.55$。';
+            }
+            triggerMathRender(feedback);
+        }
+
+        /* Render 2D Canvas Trajectory */
+        function render2DCanvas() {
+            const canvas = document.getElementById('canvas2D');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const cx = w / 2, cy = h / 2, scale = 8;
+
+            // Grid Lines
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+            for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+            // Axes
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, cy); ctx.lineTo(w, cy);
+            ctx.moveTo(cx, 0); ctx.lineTo(cx, h);
+            ctx.stroke();
+
+            const showRays = document.getElementById('chkShowRays').checked;
+            const showLabels = document.getElementById('chkShowLabels').checked;
+
+            dataset.forEach(drop => {
+                let px = cx + drop.x * scale;
+                let py = cy - drop.y * scale;
+
+                let math = calculateDropMath(drop);
+
+                if (showRays) {
+                    let rayLen = 800;
+                    let dx = Math.cos(math.betaRad) * rayLen;
+                    let dy = -Math.sin(math.betaRad) * rayLen;
+
+                    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(px, py); ctx.lineTo(px + dx, py + dy);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Drop Ellipse Body
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(-drop.alpha * Math.PI / 180);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, (drop.l * scale) / 10, (drop.w * scale) / 10, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = '#f87171';
+                ctx.stroke();
+                ctx.restore();
+
+                if (showLabels) {
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.font = '10px Inter';
+                    ctx.fillText(`P${drop.id}(W:${drop.w}, L:${drop.l})`, px + 8, py - 8);
+                }
+            });
+
+            if (dataset.length >= 2) {
+                let x0px = cx + convergence2D.x0 * scale;
+                let y0px = cy - convergence2D.y0 * scale;
+
+                ctx.strokeStyle = '#22d3ee';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x0px, y0px, 10, 0, 2 * Math.PI);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x0px - 15, y0px); ctx.lineTo(x0px + 15, y0px);
+                ctx.moveTo(x0px, y0px - 15); ctx.lineTo(x0px, y0px + 15);
+                ctx.stroke();
+
+                ctx.fillStyle = '#22d3ee';
+                ctx.font = 'bold 12px Inter';
+                ctx.fillText(`匯聚點 (${convergence2D.x0}, ${convergence2D.y0})`, x0px + 14, y0px + 14);
+            }
+        }
+
+        function init3DScene() {
+            const container = document.getElementById('threejs-container');
+            if (!container) return;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x090d16);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(45, 35, 85);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffd700, 0.9);
+            dirLight.position.set(30, 50, 60);
+            scene.add(dirLight);
+
+            // Wall Grid Plane (Z=0)
+            const wallGrid = new THREE.GridHelper(120, 24, 0xd4af37, 0x1e293b);
+            wallGrid.rotation.x = Math.PI / 2;
+            scene.add(wallGrid);
+
+            droplets3DGroup = new THREE.Group();
+            rays3DGroup = new THREE.Group();
+            particles3DGroup = new THREE.Group();
+            scene.add(droplets3DGroup);
+            scene.add(rays3DGroup);
+            scene.add(particles3DGroup);
+
+            // Gold 3D Origin Sphere S
+            const sphereGeo = new THREE.SphereGeometry(2.2, 32, 32);
+            const sphereMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, roughness: 0.2 });
+            originMarker3D = new THREE.Mesh(sphereGeo, sphereMat);
+            scene.add(originMarker3D);
+
+            window.addEventListener('resize', resize3DCanvas);
+            animate3DLoop();
+        }
+
+        function resize3DCanvas() {
+            const container = document.getElementById('threejs-container');
+            if (!container || !renderer || !camera) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        /* Update 3D Scene Geometry based on dataset and Z_mean */
+        function update3DScene(zMean) {
+            if (!scene) return;
+
+            while (droplets3DGroup.children.length > 0) droplets3DGroup.remove(droplets3DGroup.children[0]);
+            while (rays3DGroup.children.length > 0) rays3DGroup.remove(rays3DGroup.children[0]);
+            if (cone3DMesh) { scene.remove(cone3DMesh); cone3DMesh = null; }
+
+            if (dataset.length === 0) return;
+
+            originMarker3D.position.set(convergence2D.x0, convergence2D.y0, zMean);
+            document.getElementById('origin3DCoord').innerText = `空間源頭: S(${convergence2D.x0}, ${convergence2D.y0}, ${zMean.toFixed(2)}) cm`;
+
+            dataset.forEach(drop => {
+                // Oriented Elliptical Drop Mesh on Wall
+                const dropGeo = new THREE.CylinderGeometry(drop.w / 3, drop.l / 3, 0.2, 16);
+                const dropMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
+                const dropMesh = new THREE.Mesh(dropGeo, dropMat);
+                
+                dropMesh.position.set(drop.x, drop.y, 0.1);
+                dropMesh.rotation.x = Math.PI / 2;
+                dropMesh.rotation.z = -drop.alpha * Math.PI / 180;
+                droplets3DGroup.add(dropMesh);
+
+                // Flight Trajectory Line (Yellow)
+                const flightPoints = [
+                    new THREE.Vector3(drop.x, drop.y, 0),
+                    new THREE.Vector3(convergence2D.x0, convergence2D.y0, drop.z)
+                ];
+                const flightGeo = new THREE.BufferGeometry().setFromPoints(flightPoints);
+                const flightMat = new THREE.LineDashedMaterial({ color: 0xf59e0b, dashSize: 1.5, gapSize: 0.8 });
+                const flightLine = new THREE.Line(flightGeo, flightMat);
+                flightLine.computeLineDistances();
+                rays3DGroup.add(flightLine);
+
+                // Height Normal Line Zi (Purple)
+                const heightPoints = [
+                    new THREE.Vector3(convergence2D.x0, convergence2D.y0, 0),
+                    new THREE.Vector3(convergence2D.x0, convergence2D.y0, drop.z)
+                ];
+                const heightGeo = new THREE.BufferGeometry().setFromPoints(heightPoints);
+                const heightMat = new THREE.LineBasicMaterial({ color: 0xa855f7, linewidth: 2 });
+                const heightLine = new THREE.Line(heightGeo, heightMat);
+                rays3DGroup.add(heightLine);
+            });
+
+            // 3D Spray Cone
+            if (show3DCone && dataset.length >= 3) {
+                let maxDist = Math.max(...dataset.map(d => d.d || 10));
+                const coneGeo = new THREE.ConeGeometry(maxDist * 1.1, Math.max(5, zMean), 32, 1, true);
+                const coneMat = new THREE.MeshBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.15, wireframe: true });
+                cone3DMesh = new THREE.Mesh(coneGeo, coneMat);
+                cone3DMesh.position.set(convergence2D.x0, convergence2D.y0, zMean / 2);
+                cone3DMesh.rotation.x = -Math.PI / 2;
+                scene.add(cone3DMesh);
+            }
+        }
+
+        function toggle3DCone() {
+            show3DCone = !show3DCone;
+            let zMean = dataset.reduce((a, b) => a + (b.z || 0), 0) / (dataset.length || 1);
+            update3DScene(zMean);
+        }
+
+        function animate3DLoop() {
+            requestAnimationFrame(animate3DLoop);
+            if (controls) controls.update();
+
+            if (is3DAnimating && particles3DGroup) {
+                particles3DGroup.children.forEach(p => {
+                    p.progress = (p.progress + 0.02) % 1.0;
+                    p.position.lerpVectors(p.startPos, p.endPos, p.progress);
+                });
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function toggle3DAnimation() {
+            is3DAnimating = !is3DAnimating;
+            const btn = document.getElementById('btnAnimate3D');
+            if (is3DAnimating) {
+                btn.classList.replace('bg-amber-600', 'bg-red-600');
+                btn.innerHTML = '<i class="fa-solid fa-pause"></i> 暫停動畫';
+                setup3DParticles();
+            } else {
+                btn.classList.replace('bg-red-600', 'bg-amber-600');
+                btn.innerHTML = '<i class="fa-solid fa-play"></i> 播放粒子飛濺';
+            }
+        }
+
+        function setup3DParticles() {
+            while (particles3DGroup.children.length > 0) particles3DGroup.remove(particles3DGroup.children[0]);
+            let zMean = dataset.reduce((a, b) => a + b.z, 0) / (dataset.length || 1);
+
+            dataset.forEach(drop => {
+                const particleGeo = new THREE.SphereGeometry(0.6, 8, 8);
+                const particleMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+                const particle = new THREE.Mesh(particleGeo, particleMat);
+
+                particle.startPos = new THREE.Vector3(convergence2D.x0, convergence2D.y0, zMean);
+                particle.endPos = new THREE.Vector3(drop.x, drop.y, 0);
+                particle.progress = Math.random();
+
+                particles3DGroup.add(particle);
+            });
+        }
+
+        function reset3DCamera() {
+            if (camera && controls) {
+                camera.position.set(45, 35, 85);
+                controls.target.set(0, 0, 0);
+            }
+        }
+
+        function updateReportData(zMean, zStd) {
+            document.getElementById('rpt-count').innerText = `${dataset.length} 個`;
+            document.getElementById('rpt-2d-xy').innerText = `(${convergence2D.x0}, ${convergence2D.y0}) cm`;
+            document.getElementById('rpt-z-mean').innerText = `${zMean.toFixed(2)} cm`;
+            document.getElementById('rpt-z-std').innerText = `${zStd.toFixed(2)} cm`;
+
+            const verdictBox = document.getElementById('verdictBox');
+            const verdictIcon = document.getElementById('verdictIcon');
+            const verdictTitle = document.getElementById('verdictTitle');
+            const verdictDesc = document.getElementById('verdictDesc');
+
+            if (dataset.length >= 3 && zStd <= 8.0) {
+                verdictBox.className = 'p-5 rounded-2xl border bg-red-950/40 border-red-700/80 text-red-200';
+                verdictIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-400"></i>';
+                verdictTitle.innerText = '鑑定結論：鐵證判斷為現代甩彩贗品 (FORGERY)';
+                verdictDesc.innerText = `流體軌跡逆向重構顯示，所有微粒之 3D 發射高度集中於 Z̄ = ${zMean.toFixed(1)} cm 處 (標準差 σ_Z = ${zStd.toFixed(2)} cm ≤ 8 cm)，且 2D 直線精準交會。此高度符合現代作偽者持筆刷甩彩或以噴槍飛濺之物理特徵！`;
+            } else if (dataset.length >= 3) {
+                verdictBox.className = 'p-5 rounded-2xl border bg-teal-950/40 border-teal-700/80 text-teal-200';
+                verdictIcon.innerHTML = '<i class="fa-solid fa-circle-check text-teal-400"></i>';
+                verdictTitle.innerText = '鑑定結論：符合古代靜態著色真品特徵 (AUTHENTIC)';
+                verdictDesc.innerText = `數據顯示，顏料微粒長短軸比例接近正圓 (撞擊角 θ_i ≈ 90°)，且倒車延伸線呈現散亂平行、無單一 3D 匯聚點 (標準差 σ_Z = ${zStd.toFixed(2)} cm)。證實壁畫係由古代畫師持筆靜態暈染著色，排除現代動態甩彩作偽。`;
+            } else {
+                verdictBox.className = 'p-5 rounded-2xl border bg-slate-800 border-slate-700 text-slate-300';
+                verdictIcon.innerHTML = '<i class="fa-solid fa-info-circle text-amber-400"></i>';
+                verdictTitle.innerText = '等待數據採樣...';
+                verdictDesc.innerText = '請至少輸入 3 個以上之微觀顏料顆粒量度數據，以進行法醫級 3D 離散度判定。';
+            }
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,ID,X(cm),Y(cm),Width_Wi(mm),Length_Li(mm),Alpha(deg)\n";
+            dataset.forEach(d => { csvContent += `${d.id},${d.x},${d.y},${d.w},${d.l},${d.alpha}\n`; });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Dunhuang_Forensics_Wi_Li_Data.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportExcel() {
+            const wsData = [["ID", "X (cm)", "Y (cm)", "短軸 Wi (mm)", "長軸 Li (mm)", "方向角 alpha (deg)", "撞擊角 theta (deg)", "倒車方向 (deg)", "距離 d (cm)", "高度 Z (cm)"]];
+            dataset.forEach(d => { wsData.push([d.id, d.x, d.y, d.w, d.l, d.alpha, d.thetaDeg, d.betaDeg, d.d, d.z]); });
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Dunhuang_Forensics");
+            XLSX.writeFile(wb, "敦煌壁畫鑑定數據紀錄_Wi_Li.xlsx");
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                const importedData = [];
+                for (let i = 1; i < json.length; i++) {
+                    const row = json[i];
+                    if (row.length >= 5) {
+                        importedData.push({
+                            id: parseInt(row[0]) || i,
+                            x: parseFloat(row[1]) || 0,
+                            y: parseFloat(row[2]) || 0,
+                            w: parseFloat(row[3]) || 2,
+                            l: parseFloat(row[4]) || 4,
+                            alpha: parseFloat(row[5]) || 45
+                        });
+                    }
+                }
+
+                if (importedData.length > 0) {
+                    dataset = importedData;
+                    renderTable();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        window.onload = function() {
+            loadPreset('fake');
+            init3DScene();
+            triggerMathRender();
+        };
+    </script>
+</body>
+</html>
